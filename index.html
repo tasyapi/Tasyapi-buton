@@ -113,6 +113,7 @@ function App(){
   const [cBas,setCBas]=useState(1);
   const [cBit,setCBit]=useState(null);
   const [cDurum,setCDurum]=useState("X");
+  const [sonGrupId,setSonGrupId]=useState(null);
 
   const gs=ags(veri.yil,veri.ay);
   const gunler=Array.from({length:gs},(_,i)=>i+1);
@@ -185,7 +186,8 @@ function App(){
   function cogaltUygula(){
     const bas=cBas,bit=cBit||gs;
     setVeri(v=>({...v,gruplar:v.gruplar.map(g=>g.id!==cogaltE.gid?g:{...g,personeller:g.personeller.map(p=>{
-      if(p.id!==cogaltE.pid)return p;
+      // Grup modunda tüm personele, tekli modda sadece seçili personele
+      if(cogaltE.pid!=="grup" && p.id!==cogaltE.pid) return p;
       const yg=hesapla(p,v.yil,v.ay,false);
       const ct=pd(p.cikis);
       for(let g2=bas;g2<=bit;g2++){
@@ -228,6 +230,16 @@ function App(){
     setTimeout(()=>{window.print();setTimeout(()=>setPrintId(null),800);},400);
   }
 
+  // Son gruba scroll
+  useEffect(()=>{
+    if(ekran==="tablo" && sonGrupId){
+      setTimeout(()=>{
+        const el=document.getElementById("grup-"+sonGrupId);
+        if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
+      },100);
+    }
+  },[ekran]);
+
   if(!yuklendi)return(
     <div className="min-h-screen flex items-center justify-center" style={{background:"#0a0f1e"}}>
       <div className="flex flex-col items-center gap-4"><img src="logo192.png" style={{width:120,height:120,borderRadius:16}}/><div className="text-yellow-400 text-xl font-bold">TAŞ YAPI yükleniyor...</div></div>
@@ -266,8 +278,14 @@ function App(){
       <div className="min-h-screen flex flex-col" style={{background:"#0a0f1e"}}>
         <div className="flex items-center gap-3 px-4 py-4" style={{background:"#1a2035"}}>
           <button onClick={()=>{setEkran("tablo");setCogaltE(null);}} className="text-white text-2xl px-2">←</button>
-          <div><div className="text-white font-bold text-lg">{p?.ad}</div>
-          <div className="text-slate-400 text-sm">Hücre Çoğalt</div></div>
+          <div>
+          <div className="text-white font-bold text-lg">
+            {cogaltE?.pid==="grup" ? (veri.gruplar.find(g=>g.id===cogaltE?.gid)?.ad||"Grup") : p?.ad}
+          </div>
+          <div className="text-slate-400 text-sm">
+            {cogaltE?.pid==="grup" ? "Tüm Personele Çoğalt" : "Hücre Çoğalt"}
+          </div>
+        </div>
         </div>
         <div className="flex-1 px-4 py-6 space-y-6">
           <div style={{background:"#1a2035"}} className="rounded-2xl p-4 space-y-3">
@@ -323,7 +341,7 @@ function App(){
           <div className="text-white font-bold text-lg">{p.ad}</div>
         </div>
         <div className="px-4 py-4 space-y-4">
-          <button onClick={()=>{setCogaltE({gid:g.id,pid:p.id});setCBas(1);setCBit(gs);setEkran("cogalt");}}
+          <button onClick={()=>{setCogaltE({gid:g.id,pid:p.id});setCBas(new Date().getDate());setCBit(gs);setEkran("cogalt");}}
             className="w-full py-4 rounded-2xl bg-green-600 text-white font-bold text-lg">📋 Hücre Çoğalt</button>
           <div style={{background:"#1a2035"}} className="rounded-2xl p-4 space-y-4">
             <div className="text-yellow-400 font-bold">📋 Bilgiler</div>
@@ -459,7 +477,14 @@ function App(){
 
   // ANA TABLO
   const printGruplar=printId==="all"?veri.gruplar:printId?veri.gruplar.filter(g=>g.id===printId):[];
-  const filtreGruplar=veri.gruplar.map(g=>({...g,personeller:arama?g.personeller.filter(p=>p.ad.toLowerCase().includes(arama.toLowerCase())):g.personeller})).filter(g=>!arama||g.personeller.length>0);
+  const filtreGruplar=veri.gruplar.map(g=>({
+    ...g,
+    personeller:arama
+      ? (g.ad.toLowerCase().includes(arama.toLowerCase())
+          ? g.personeller  // Grup adı eşleşiyorsa tüm personeller
+          : g.personeller.filter(p=>p.ad.toLowerCase().includes(arama.toLowerCase())))
+      : g.personeller
+  })).filter(g=>!arama||(g.personeller.length>0||g.ad.toLowerCase().includes(arama.toLowerCase())));
 
   return(
     <div className="min-h-screen" style={{background:"#0a0f1e"}}>
@@ -530,7 +555,7 @@ function App(){
       {/* GRUPLAR */}
       <div className="overflow-x-auto">
         {filtreGruplar.map(g=>(
-          <div key={g.id} className="mb-4">
+          <div key={g.id} id={"grup-"+g.id} className="mb-4">
             <div className="no-print px-3 py-2 flex items-center justify-between" style={{background:"#1e3a5f"}}>
               <input value={g.ad} onChange={e=>setVeri(v=>({...v,gruplar:v.gruplar.map(gr=>gr.id!==g.id?gr:{...gr,ad:e.target.value})}))}
                 className="text-yellow-300 font-bold text-sm bg-transparent border-b border-transparent focus:border-yellow-400 outline-none"/>
@@ -550,6 +575,8 @@ function App(){
                     const yg={};Object.entries(p.gunler).forEach(([gun,d])=>{if(d!=="X")yg[gun]=d;});return {...p,gunler:yg};
                   })})}));
                 }} className="text-xs text-red-300 px-2 py-1 rounded font-bold" style={{background:"#7f1d1d"}}>X Sil</button>
+                <button onClick={()=>{setCogaltE({gid:g.id,pid:"grup"});setCBas(new Date().getDate());setCBit(new Date().getDate());setEkran("cogalt");}} 
+                  className="text-xs text-white px-2 py-1 rounded font-bold" style={{background:"#1d4ed8"}}>📋 Grup</button>
                 <button onClick={()=>excelIndir(g.id)} className="text-xs text-green-300 px-2 py-1 rounded font-bold" style={{background:"#166534"}}>📊</button>
               </div>
             </div>
@@ -598,7 +625,7 @@ function App(){
                         const show=cs?"-":(d||(isPaz?"HT":"·"));
                         return(
                           <td key={gun} className="no-print text-center py-0.5 px-0">
-                            <button onClick={()=>{if(cs)return;setSecilenHucre({gid:g.id,pid:p.id,gun});setEkran("hucre");}} className={cls}>{show}</button>
+                            <button onClick={()=>{if(cs)return;setSonGrupId(g.id);setSecilenHucre({gid:g.id,pid:p.id,gun});setEkran("hucre");}} className={cls}>{show}</button>
                           </td>
                         );
                       })}
@@ -610,7 +637,7 @@ function App(){
                         <span className="text-orange-400 font-bold text-sm">{p.mesai||"-"}</span>
                       </td>
                       <td className="no-print text-center px-1">
-                        <button onClick={()=>{setCogaltE({gid:g.id,pid:p.id});setCBas(1);setCBit(gs);setEkran("cogalt");}}
+                        <button onClick={()=>{setCogaltE({gid:g.id,pid:p.id});setCBas(new Date().getDate());setCBit(gs);setEkran("cogalt");}}
                           className="text-white rounded-lg px-2 py-1 font-bold text-base" style={{background:"#166534"}}>📋</button>
                       </td>
                     </tr>
