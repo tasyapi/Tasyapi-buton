@@ -152,22 +152,32 @@ function App(){
   },[veri]);
 
   function pGuncelle(gid,pid,alan,deger){
-    setVeri(v=>({...v,gruplar:v.gruplar.map(g=>g.id!==gid?g:{...g,personeller:g.personeller.map(p=>{
-      if(p.id!==pid)return p;
-      const yeni={...p,[alan]:deger};
-      return {...yeni,gunler:hesapla(yeni,v.yil,v.ay,false)};
-    })})}));
+    setVeri(v=>{
+      const yeni={...v,gruplar:v.gruplar.map(g=>g.id!==gid?g:{...g,personeller:g.personeller.map(p=>{
+        if(p.id!==pid)return p;
+        const yn={...p,[alan]:deger};
+        return {...yn,gunler:hesapla(yn,v.yil,v.ay,false)};
+      })})};
+      dbKaydet(yeni);
+      try{localStorage.setItem("ty4",JSON.stringify(yeni));}catch{}
+      return yeni;
+    });
   }
 
   function hGuncelle(gid,pid,gun,deger){
-    setVeri(v=>({...v,gruplar:v.gruplar.map(g=>g.id!==gid?g:{...g,personeller:g.personeller.map(p=>{
-      if(p.id!==pid)return p;
-      const ct=pd(p.cikis);
-      if(ct&&new Date(v.yil,v.ay,gun)>ct)return p;
-      const yg=hesapla(p,v.yil,v.ay,false);
-      if(deger==="")delete yg[gun];else yg[gun]=deger;
-      return {...p,gunler:yg};
-    })})}));
+    setVeri(v=>{
+      const yeni={...v,gruplar:v.gruplar.map(g=>g.id!==gid?g:{...g,personeller:g.personeller.map(p=>{
+        if(p.id!==pid)return p;
+        const ct=pd(p.cikis);
+        if(ct&&new Date(v.yil,v.ay,gun)>ct)return p;
+        const yg=hesapla(p,v.yil,v.ay,false);
+        if(deger==="")delete yg[gun];else yg[gun]=deger;
+        return {...p,gunler:yg};
+      })})};
+      dbKaydet(yeni);
+      try{localStorage.setItem("ty4",JSON.stringify(yeni));}catch{}
+      return yeni;
+    });
   }
 
   function pEkle(gid){
