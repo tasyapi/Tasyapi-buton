@@ -122,6 +122,26 @@ function App(){
     dbYukle().then(d=>{if(d)setVeri(d);setYuklendi(true);});
   },[]);
 
+
+  useEffect(()=>{
+    const kaydet=()=>{
+      try{
+        localStorage.setItem("ty4",JSON.stringify(veri));
+        dbKaydet(veri);
+      }catch(e){}
+    };
+
+    window.addEventListener("pagehide",kaydet);
+    document.addEventListener("visibilitychange",()=>{
+      if(document.hidden) kaydet();
+    });
+
+    return ()=>{
+      window.removeEventListener("pagehide",kaydet);
+    };
+  },[veri]);
+
+
   useEffect(()=>{
     if(!yuklendi)return;
     dbKaydet(veri);
