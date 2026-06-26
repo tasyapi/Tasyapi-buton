@@ -99,7 +99,17 @@ const GRUPLAR = [
 ].map(g=>({id:g.id,ad:g.ad,personeller:g.p.map(([ad,gorev],i)=>BOŞ_P(g.id,i,ad,gorev))}));
 
 function App(){
-  const [veri,setVeri]=useState({yil:2026,ay:new Date().getMonth(),gruplar:GRUPLAR});
+  const [veri,setVeri]=useState(()=>{
+    // Önce localStorage'dan senkron oku - hızlı ve güvenilir
+    try {
+      const k = localStorage.getItem("ty4");
+      if(k) {
+        const d = JSON.parse(k);
+        if(d && d.gruplar && d.gruplar.length > 0) return d;
+      }
+    } catch {}
+    return {yil:2026, ay:new Date().getMonth(), gruplar:GRUPLAR};
+  });
   const [yuklendi,setYuklendi]=useState(false);
   const [ekran,setEkran]=useState("tablo");
   const [secilenHucre,setSecilenHucre]=useState(null);
@@ -119,28 +129,14 @@ function App(){
   const gunler=Array.from({length:gs},(_,i)=>i+1);
 
   useEffect(()=>{
-    dbYukle().then(d=>{if(d)setVeri(d);setYuklendi(true);});
-  },[]);
-
-
-  useEffect(()=>{
-    const kaydet=()=>{
-      try{
-        localStorage.setItem("ty4",JSON.stringify(veri));
-        dbKaydet(veri);
-      }catch(e){}
-    };
-
-    window.addEventListener("pagehide",kaydet);
-    document.addEventListener("visibilitychange",()=>{
-      if(document.hidden) kaydet();
+    dbYukle().then(d=>{
+      if(d && d.gruplar && d.gruplar.length>0){
+        setVeri(d);
+      }
+      // null gelirse localStorage'daki veri zaten yüklü, dokunma
+      setYuklendi(true);
     });
-
-    return ()=>{
-      window.removeEventListener("pagehide",kaydet);
-    };
-  },[veri]);
-
+  },[]);
 
   useEffect(()=>{
     if(!yuklendi)return;
@@ -562,7 +558,16 @@ function App(){
             <div className="text-slate-300 text-xs">Puantör: Mustafa Ayçiçek</div>
             <div className="text-slate-500 text-xs">{AYLAR[veri.ay]} {veri.yil}</div>
           </div>
-          <button onClick={()=>setEkran("ayarlar")} className="bg-yellow-400 text-black font-bold px-3 py-2 rounded-xl text-sm">⚙️</button>
+          <div className="flex gap-2">
+            <button onClick={()=>{
+              dbKaydet(veri);
+              try{localStorage.setItem("ty4",JSON.stringify(veri));}catch{}
+              // Görsel feedback
+              const btn = document.querySelector('.kaydet-btn');
+              if(btn){ btn.style.background='#15803d'; setTimeout(()=>btn.style.background='#22c55e',1000); }
+            }} className="kaydet-btn bg-green-500 text-white font-bold px-3 py-2 rounded-xl text-sm">💾 Kaydet</button>
+            <button onClick={()=>setEkran("ayarlar")} className="bg-yellow-400 text-black font-bold px-3 py-2 rounded-xl text-sm">⚙️</button>
+          </div>
         </div>
         <input value={arama} onChange={e=>setArama(e.target.value)} placeholder="🔍 Personel ara..."
           className="w-full rounded-xl px-3 py-2 text-white text-sm mb-2" style={{background:"#0a0f1e",border:"1px solid #334155"}}/>
