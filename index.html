@@ -100,7 +100,6 @@ const GRUPLAR = [
 
 function App(){
   const [veri,setVeri]=useState(()=>{
-    // Önce localStorage'dan senkron oku - hızlı ve güvenilir
     try {
       const k = localStorage.getItem("ty4");
       if(k) {
@@ -108,7 +107,7 @@ function App(){
         if(d && d.gruplar && d.gruplar.length > 0) return d;
       }
     } catch {}
-    return {yil:2026, ay:new Date().getMonth(), gruplar:GRUPLAR};
+    return {yil:2026, ay:new Date().getMonth(), gruplar:GRUPLAR, aylar:{}};
   });
   const [yuklendi,setYuklendi]=useState(false);
   const [ekran,setEkran]=useState("tablo");
@@ -144,16 +143,14 @@ function App(){
     try{localStorage.setItem("ty4",JSON.stringify(veri));}catch{}
   },[veri,yuklendi]);
 
-  useEffect(()=>{
-    if(!yuklendi)return;
-    setVeri(v=>({...v,gruplar:v.gruplar.map(g=>({...g,personeller:g.personeller.map(p=>({...p,gunler:hesapla(p,v.yil,v.ay,true)}))}))}));
-  },[veri.ay,veri.yil,yuklendi]);
+
 
   useEffect(()=>{
     const b=new Date();
     const bugun=new Date(b.getFullYear(),b.getMonth(),b.getDate());
     const l=[];
     veri.gruplar.forEach(g=>g.personeller.forEach(p=>{
+      // izinBit varsa ona bak
       if(p.izinBit){
         const t=pd(p.izinBit);
         if(t){
@@ -161,6 +158,19 @@ function App(){
           const fark=Math.ceil((tGun-bugun)/86400000);
           if(fark===1) l.push({ad:p.ad,grup:g.ad,tip:"isbasi"});
           if(fark===0) l.push({ad:p.ad,grup:g.ad,tip:"bugun"});
+        }
+      } else {
+        // izinBit yoksa günlerdeki son İZ gününe bak
+        const izGunleri = Object.entries(p.gunler)
+          .filter(([,d])=>d==="İZ")
+          .map(([g])=>+g)
+          .sort((a,b)=>b-a);
+        if(izGunleri.length > 0){
+          const sonIzGun = izGunleri[0];
+          const sonIzTarih = new Date(veri.yil, veri.ay, sonIzGun);
+          const fark = Math.ceil((sonIzTarih-bugun)/86400000);
+          if(fark===0) l.push({ad:p.ad,grup:g.ad,tip:"isbasi"}); // yarın işbaşı
+          if(fark===-1) l.push({ad:p.ad,grup:g.ad,tip:"bugun"}); // bugün işbaşı
         }
       }
     }));
@@ -449,11 +459,33 @@ function App(){
           <div style={{background:"#1a2035"}} className="rounded-2xl p-4 space-y-3">
             <div className="text-yellow-400 font-bold">📅 Dönem Seç</div>
             <div className="flex gap-2">
-              <select value={veri.ay} onChange={e=>setVeri(v=>({...v,ay:+e.target.value}))}
+              <select value={veri.ay} onChange={e=>{
+                const yeniAy=+e.target.value;
+                setVeri(v=>{
+                  // Mevcut ayı kaydet
+                  const ayKey=v.yil+"-"+v.ay;
+                  const aylar={...(v.aylar||{}),[ayKey]:v.gruplar};
+                  // Yeni ayı yükle
+                  const yeniKey=v.yil+"-"+yeniAy;
+                  const yeniGruplar=aylar[yeniKey] || 
+                    v.gruplar.map(g=>({...g,personeller:g.personeller.map(p=>({...p,gunler:hesapla({...p,gunler:{}},v.yil,yeniAy,true),mesai:""}))}));
+                  return {...v,ay:yeniAy,gruplar:yeniGruplar,aylar};
+                });
+              }}
                 className="flex-1 rounded-xl px-3 py-3 text-white" style={{background:"#0a0f1e",border:"1px solid #334155"}}>
                 {AYLAR.map((a,i)=><option key={i} value={i}>{a}</option>)}
               </select>
-              <select value={veri.yil} onChange={e=>setVeri(v=>({...v,yil:+e.target.value}))}
+              <select value={veri.yil} onChange={e=>{
+                const yeniYil=+e.target.value;
+                setVeri(v=>{
+                  const ayKey=v.yil+"-"+v.ay;
+                  const aylar={...(v.aylar||{}),[ayKey]:v.gruplar};
+                  const yeniKey=yeniYil+"-"+v.ay;
+                  const yeniGruplar=aylar[yeniKey] ||
+                    v.gruplar.map(g=>({...g,personeller:g.personeller.map(p=>({...p,gunler:hesapla({...p,gunler:{}},yeniYil,v.ay,true),mesai:""}))}));
+                  return {...v,yil:yeniYil,gruplar:yeniGruplar,aylar};
+                });
+              }}
                 className="w-28 rounded-xl px-3 py-3 text-white" style={{background:"#0a0f1e",border:"1px solid #334155"}}>
                 {[2026,2027,2028,2029,2030,2031,2032,2033,2034,2035].map(y=><option key={y} value={y}>{y}</option>)}
               </select>
